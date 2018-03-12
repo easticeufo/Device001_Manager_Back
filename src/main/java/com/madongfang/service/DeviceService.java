@@ -18,12 +18,14 @@ import com.madongfang.api.DeviceApi;
 import com.madongfang.api.DeviceBatchApi;
 import com.madongfang.api.DevicePageApi;
 import com.madongfang.api.DevicePromptApi;
+import com.madongfang.api.PlugApi;
 import com.madongfang.api.ReturnApi;
 import com.madongfang.entity.Area;
 import com.madongfang.entity.Device;
 import com.madongfang.entity.DevicePrompt;
 import com.madongfang.entity.Manager;
 import com.madongfang.entity.Plug;
+import com.madongfang.entity.PlugPK;
 import com.madongfang.exception.HttpBadRequestException;
 import com.madongfang.exception.HttpNotAcceptableException;
 import com.madongfang.exception.HttpNotFoundException;
@@ -444,6 +446,25 @@ public class DeviceService {
 		logger.debug("update count={}", count);
 		
 		return convertDevice(virtualDevice);
+	}
+	
+	public PlugApi setPlugStatus(String deviceCode, Integer plugId, String plugStatus)
+	{
+		Plug plug = plugRepository.findOne(new PlugPK(plugId, deviceCode));
+		if (plug == null)
+		{
+			throw new HttpBadRequestException(new ReturnApi(-1, "插座不存在"));
+		}
+		
+		plug.setStatus(plugStatus);
+		
+		plugRepository.save(plug);
+		
+		PlugApi plugApi = new PlugApi();
+		plugApi.setId(plugId);
+		plugApi.setStatus(plugStatus);
+		
+		return plugApi;
 	}
 	
 	private final Logger logger = LoggerFactory.getLogger(getClass());
