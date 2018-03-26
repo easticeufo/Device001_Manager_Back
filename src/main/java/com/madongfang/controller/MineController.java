@@ -1,6 +1,9 @@
 package com.madongfang.controller;
 
+import java.io.IOException;
 import java.util.List;
+
+import javax.servlet.http.HttpServletResponse;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,12 +30,15 @@ import com.madongfang.api.DevicePageApi;
 import com.madongfang.api.ManagerApi;
 import com.madongfang.api.PlugApi;
 import com.madongfang.api.ReturnApi;
+import com.madongfang.data.ChargeRecordExcel;
 import com.madongfang.entity.Manager;
+import com.madongfang.exception.HttpInternalServerErrorException;
 import com.madongfang.exception.HttpNotAcceptableException;
 import com.madongfang.service.CustomRecordService;
 import com.madongfang.service.DeviceService;
 import com.madongfang.service.InviteCodeService;
 import com.madongfang.service.ManagerService;
+import com.madongfang.util.ExcelUtil;
 
 @RestController
 @RequestMapping(value="/api/mine")
@@ -112,6 +118,32 @@ public class MineController {
 		return customRecordService.getChargeRecords(manager.getId(), deviceCode, areaIds, location, startTime, stopTime, pageable);
 	}
 	
+	@GetMapping(value="/records/charge/excel")
+	public String exportChargeRecordExcel(HttpServletResponse response, 
+			@SessionAttribute Manager manager, 
+			@RequestParam(required=false) String deviceCode,
+			@RequestParam(required=false) List<Integer> areaIds,
+			@RequestParam(required=false) String location,
+			@RequestParam(required=false) Long startTime,
+			@RequestParam(required=false) Long stopTime)
+	{
+		try {
+			List<ChargeRecordExcel> chargeRecordExcel = customRecordService.getChargeRecords(manager.getId(), deviceCode, areaIds, location, startTime, stopTime);
+			
+			response.setContentType("application/binary;charset=ISO8859_1");
+			String filename = new String("充电记录.xlsx".getBytes(), "ISO8859_1");
+			response.setHeader("Content-Disposition", "attachment;filename=" + filename);
+			String[] titles = {"设备编号", "设备区域", "设备位置", "插座位置", "开始充电时间", "结束充电时间", "持续时间", "消耗电量(度)", "充电金额(元)", "用户ID", "用户昵称"};
+			excelUtil.export(response.getOutputStream(), titles, chargeRecordExcel);
+		} catch (IllegalArgumentException | IllegalAccessException | IOException e) {
+			// TODO Auto-generated catch block
+			logger.error("导出excel异常:", e);
+			throw new HttpInternalServerErrorException(new ReturnApi(-1, "导出excel失败"));
+		}
+		
+		return null;
+	}
+	
 	@GetMapping(value="/inviteCodes")
 	public List<String> getInviteCodes(@SessionAttribute Manager manager, @RequestParam int level, @RequestParam int number) {
 		if (manager.getLevel() > 1)
@@ -135,4 +167,7 @@ public class MineController {
 	
 	@Autowired
 	private InviteCodeService inviteCodeService;
+	
+	@Autowired
+	private ExcelUtil excelUtil;
 }

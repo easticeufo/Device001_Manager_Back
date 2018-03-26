@@ -120,8 +120,11 @@ public class AreaService {
 		
 		for (Manager manager : managerRepository.findByLevel(1)) // 1级管理员自动添加新增小区
 		{
-			manager.getAreas().add(area); 
-			managerRepository.save(manager);
+			if (manager.getId() != managerId)
+			{
+				manager.getAreas().add(area); 
+				managerRepository.save(manager);
+			}
 		}
 		
 		Manager manager = managerRepository.findOne(managerId);

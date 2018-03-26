@@ -1,5 +1,6 @@
 package com.madongfang.service;
 
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
@@ -18,6 +19,7 @@ import com.madongfang.api.BillRecordApi;
 import com.madongfang.api.ChargeRecordApi;
 import com.madongfang.api.PaymentRecordApi;
 import com.madongfang.api.ReturnApi;
+import com.madongfang.data.ChargeRecordExcel;
 import com.madongfang.entity.Area;
 import com.madongfang.entity.CustomRecord;
 import com.madongfang.entity.Device;
@@ -276,6 +278,99 @@ public class CustomRecordService {
 				return chargeRecordApi;
 			}
 		});
+	}
+	
+	public List<ChargeRecordExcel> getChargeRecords(int managerId, String deviceCode, List<Integer> areaIds, 
+			String location, Long startTimeMs, Long stopTimeMs) 
+	{
+		List<Area> areas = null;
+		Date startTime;
+		Date stopTime;
+		
+		Manager manager = managerRepository.findOne(managerId);
+		if (manager == null)
+		{
+			logger.warn("管理员不存在:managerId={}", managerId);
+			throw new HttpBadRequestException(new ReturnApi(-1, "管理员不存在"));
+		}
+
+		if (areaIds == null)
+		{
+			areas = manager.getAreas();
+		}
+		else 
+		{
+			areas = new LinkedList<Area>();
+			for (int areaId : areaIds) {
+				for (Area area : manager.getAreas()) {
+					if (areaId == area.getId())
+					{
+						areas.add(area);
+						break;
+					}
+				}
+			}
+		}
+		logger.debug("search areas={}", areas);
+		if (areas.size() == 0)
+		{
+			logger.warn("搜索的区域为空");
+			throw new HttpBadRequestException(new ReturnApi(-2, "搜索的区域为空"));
+		}
+		
+		if (deviceCode == null || deviceCode.length() == 0)
+		{
+			deviceCode = "%";
+		}
+		else
+		{
+			deviceCode = "%" + deviceCode + "%";
+		}
+		if (location == null || location.length() == 0)
+		{
+			location = "%";
+		}
+		else
+		{
+			location = "%" + location + "%";
+		}
+		if (startTimeMs == null)
+		{
+			startTime = new Date(0);
+		}
+		else
+		{
+			startTime = new Date(startTimeMs);
+		}
+		if (stopTimeMs == null)
+		{
+			stopTime = new Date();
+		}
+		else
+		{
+			stopTime = new Date(stopTimeMs);
+		}
+		
+		List<ChargeRecord> chargeRecords = customRecordRepository.findChargeRecords(deviceCode, areas, location, startTime, stopTime);
+		List<ChargeRecordExcel> chargeRecordExcel = new LinkedList<>();
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		for (ChargeRecord chargeRecord : chargeRecords) {
+			ChargeRecordExcel chargeRecordExcelUnit = new ChargeRecordExcel();
+			chargeRecordExcelUnit.setAmount((float)(-chargeRecord.getStartAmount()-chargeRecord.getStopAmount())/100);
+			chargeRecordExcelUnit.setCustomId(chargeRecord.getCustomId());
+			chargeRecordExcelUnit.setDeviceArea(chargeRecord.getDeviceArea());
+			chargeRecordExcelUnit.setDeviceCode(chargeRecord.getDeviceCode());
+			chargeRecordExcelUnit.setDeviceLocation(chargeRecord.getDeviceLocation());
+			chargeRecordExcelUnit.setDuration((int)((stopTime.getTime() - startTime.getTime()) / (1000 * 60)));
+			chargeRecordExcelUnit.setNickname(chargeRecord.getNickname());
+			chargeRecordExcelUnit.setPlugId(chargeRecord.getPlugId());
+			chargeRecordExcelUnit.setPowerConsumption((float)chargeRecord.getPowerConsumption()/1000);
+			chargeRecordExcelUnit.setStartTime(sdf.format(chargeRecord.getStartTime()));
+			chargeRecordExcelUnit.setStopTime(sdf.format(chargeRecord.getStopTime()));
+			chargeRecordExcel.add(chargeRecordExcelUnit);
+		}
+		
+		return chargeRecordExcel;
 	}
 	
 	private final Logger logger = LoggerFactory.getLogger(getClass());
